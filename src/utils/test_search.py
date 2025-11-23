@@ -9,11 +9,11 @@ if __name__ == '__main__':
         intents_collection_name=config.intent_collection_name,
         utterances_collection_name=config.utterance_collection_name,
     )
-    query = 'Where do I apply my coupon code at checkout?'
+    query = "I incorrectly placed an order. I need to cancel it. please help me"
     result = chroma_manager.search(
         query=query,
-        top_k_per_collection=20,
-        top_k_intents=10,
+        top_k_per_collection=config.candidate_pool,
+        top_k_intents=config.top_k,
     )
     
     for r in result:
