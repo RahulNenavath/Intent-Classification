@@ -44,8 +44,8 @@ def setup_vector_db_from_data(
     
 if __name__ == "__main__":
     config = Config()
-    intent_utterance_tsv = config.data_dir / "intent_utterances.tsv"
-    intent_description_json = config.data_dir / "intent_descriptions.json"
+    intent_utterance_tsv = config.data_dir / "combined_utt_int_dataset.tsv"
+    intent_description_json = config.data_dir / "intent_metadata.json"
     setup_vector_db_from_data(
         intent_utterance_tsv=intent_utterance_tsv,
         intent_description_json=intent_description_json,
