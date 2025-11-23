@@ -103,7 +103,7 @@ class ChromaDBManager:
 
         for intent in all_intents:
             subset = df[df["intent"] == intent]
-            utterances = subset["utterance"].tolist()
+            utterances = subset["text"].tolist()
             if not utterances:
                 result[intent] = []
                 continue
@@ -136,7 +136,7 @@ class ChromaDBManager:
                 {
                     "intent_name": intent,
                     "description": desc,
-                    "representative_utterances": reps,
+                    "representative_utterances": "<utt>".join(reps),
                 }
             )
 
@@ -165,7 +165,7 @@ class ChromaDBManager:
                     {
                         "intent_name": intent,
                         "description": desc,
-                        "representative_utterances": reps,
+                        "representative_utterances": "<utt>".join(reps),
                     }
                 )
 

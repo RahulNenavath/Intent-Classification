@@ -16,6 +16,8 @@ class Config:
         self.intent_collection_name : str = "intent_desc"
         self.utterance_collection_name : str = "intent_utterances_repr"
         self.representative_utterances_k: int = 10
+        self.candidate_pool: int = 20
+        self.top_k: int = 10
 
     def as_dict(self) -> dict:
         """Return paths as a simple serializable dictionary of strings."""
