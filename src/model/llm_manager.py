@@ -1,49 +1,67 @@
+from config import Config
 from typing import List, Dict
-from pydantic import BaseModel, Field, ValidationError
+from mlx_lm import load, generate
 
 class BaseLLMHandler:
     """
-    Base wrapper around a Groq LLM.
-    - loads model + tokenizer in constructor
-    - provides .format(user_prompt) to build chat-style prompt
-    - provides .invoke(user_prompt) to actually generate text
+    Base wrapper around a local MLX LLM.
+    - please first use setup_llm.py to download the MLX LLM locally
+    - builds a chat-style prompt via tokenizer's chat template when available
+    - generates text locally using mlx_lm.generate
     """
 
     def __init__(
         self,
         system_prompt: str,
-        model_name: str,
+        model: object,
+        tokenizer: object,
         max_tokens: int = 512,
-        temperature: float = 0.7,
-        api_key: str | None = None,
+        temperature: float = 0.7
     ) -> None:
         self.system_prompt = system_prompt
-        self.model_name = model_name
         self.max_tokens = max_tokens
         self.temperature = temperature
         
-        self.client = Groq(api_key=api_key or os.getenv("GROQ_API_KEY"))
+        self.model = model
+        self.tokenizer = tokenizer
 
-    def format(self, user_prompt: str) -> List[Dict[str, str]]:
-        """
-        Build a chat prompt for Groq (system + user).
-        """
-        messages = [
+    def _build_prompt(self, user_prompt: str) -> str:
+        messages: List[Dict[str, str]] = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        return messages
+        # Prefer chat template if available
+        apply_tmpl = getattr(self.tokenizer, "apply_chat_template", None)
+        if callable(apply_tmpl):
+            return apply_tmpl(messages, add_generation_prompt=True)
+        # Fallback to simple concatenation
+        return (
+            f"System: {self.system_prompt}\n"
+            f"User: {user_prompt}\n"
+            f"Assistant:"
+        )
 
     def invoke(self, user_prompt: str) -> str:
-        """
-        Call Groq chat completions and return raw text.
-        """
-        messages = self.format(user_prompt)
-        resp = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=messages,
-            temperature=self.temperature,
+        prompt = self._build_prompt(user_prompt)
+        out_text = generate(
+            self.model,
+            self.tokenizer,
+            prompt=prompt,
             max_tokens=self.max_tokens,
-            stream=False,
+            verbose=False,
         )
-        return resp.choices[0].message.content
+        return out_text
+    
+if __name__ == "__main__":
+    config = Config()
+    model_path = config.model_dir / config.mlx_model_repo_id.split("/")[-1]
+    model, tokenizer = load(model_path)
+    
+    handler = BaseLLMHandler(
+        system_prompt="You are a concise assistant.",
+        model=model,
+        tokenizer=tokenizer,
+        max_tokens=32,
+        temperature=0.7
+    )
+    print(handler.invoke("Say hello in one short sentence."))
