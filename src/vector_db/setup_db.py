@@ -2,7 +2,7 @@ import pandas as pd
 import json
 from pathlib import Path
 from config import Config
-from chromadb_manager import ChromaDBManager
+from vector_db import ChromaDBManager
 
 def setup_vector_db_from_data(
     intent_utterance_tsv: Path, 
