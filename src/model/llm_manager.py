@@ -33,7 +33,11 @@ class BaseLLMHandler:
         # Prefer chat template if available
         apply_tmpl = getattr(self.tokenizer, "apply_chat_template", None)
         if callable(apply_tmpl):
-            return apply_tmpl(messages, add_generation_prompt=True)
+            try:
+                # Use tokenizer's template if set; else fall back below
+                return apply_tmpl(messages, add_generation_prompt=True)
+            except Exception:
+                pass
         # Fallback to simple concatenation
         return (
             f"System: {self.system_prompt}\n"
