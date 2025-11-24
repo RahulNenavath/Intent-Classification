@@ -21,6 +21,7 @@ class Config:
         self.top_k: int = 10
         
         self.mlx_model_repo_id: str = "mlx-community/Llama-3.2-3B-Instruct-8bit"
+        self.unknown_intent_name: str = "UNKNOWN"
 
     def as_dict(self) -> dict:
         """Return paths as a simple serializable dictionary of strings."""
