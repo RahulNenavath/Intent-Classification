@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from typing import Dict, List, Any
-from utils.representative_utterance_selection import mmr_select
+from utils.representative_utterance_selection import k_center_greedy_select
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
 
@@ -14,7 +14,7 @@ class ChromaDBManager:
     - Uses a persistent local Chroma DB.
     - Creates/loads two collections:
         1) intents_desc             (docs: f"{intent}\\n{description}")
-        2) intent_utterances_repr   (docs: representative utterances selected via MMR)
+        2) intent_utterances_repr   (docs: representative utterances selected via k-center greedy selection)
 
     - Both collections use the SAME metadata schema:
         {
@@ -49,7 +49,25 @@ class ChromaDBManager:
         self.intents_collection_name = intents_collection_name
         self.utterances_collection_name = utterances_collection_name
 
-        # Get or create collections with the same embedding function
+        # Initialize collections (created lazily / can be force recreated)
+        self.intents_coll = None
+        self.utterances_coll = None
+        self._ensure_collections(force=False)
+
+    def _ensure_collections(self, force: bool) -> None:
+        """Create or recreate collections.
+
+        If force=True, existing collections with same names are deleted first.
+        """
+        if force:
+            # Delete existing collections if present
+            for name in [self.intents_collection_name, self.utterances_collection_name]:
+                try:
+                    self.client.delete_collection(name)
+                    print(f"[ChromaDBManager] Deleted existing collection: {name}")
+                except Exception:
+                    pass
+        # (Re)create collections
         self.intents_coll = self.client.get_or_create_collection(
             name=self.intents_collection_name,
             embedding_function=self.embedding_fn,
@@ -64,19 +82,24 @@ class ChromaDBManager:
         df: pd.DataFrame,
         intent_to_desc: Dict[str, str],
         k_rep: int = 20,
+        force: bool = False,
     ) -> None:
         """
         Build/refresh both collections from:
         - df: pandas DataFrame with columns [intent, utterance]
         - intent_to_desc: {intent: description}
-        - k_rep: number of representative utterances per intent (MMR)
+        - k_rep: number of representative utterances per intent (Greedy Select)
+        - force: if True delete existing collections and rebuild from scratch
         """
+
+        # Force (re)create collections if requested
+        self._ensure_collections(force=force)
 
         # Filter DF to intents we actually have descriptions for
         df = df[df["intent"].isin(intent_to_desc.keys())].copy()
 
-        # 1) Compute representative utterances per intent using MMR
-        print("[ChromaDBHandler] Selecting representative utterances with MMR...")
+        # 1) Compute representative utterances per intent using Greedy Select
+        print("[ChromaDBHandler] Selecting representative utterances with Greedy Select...")
         rep_map = self._compute_representative_utterances(df, k_rep=k_rep)
 
         # 2) Upsert the intent + description docs
@@ -108,10 +131,10 @@ class ChromaDBManager:
                 result[intent] = []
                 continue
 
-            # embed and run MMR
+            # embed and run k-center greedy selection
             embeddings = np.array(self.embedding_fn(utterances), dtype=np.float32)
             k = min(k_rep, len(utterances))
-            idxs = mmr_select(embeddings, k=k, lambda_mult=0.5)
+            idxs = k_center_greedy_select(embeddings, k=k)
 
             reps = [utterances[i] for i in idxs]
             result[intent] = reps

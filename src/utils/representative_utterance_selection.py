@@ -15,26 +15,21 @@ def cosine_sim_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     b_norm = l2_normalize(b)
     return np.matmul(a_norm, b_norm.T)
 
-def mmr_select(
+def k_center_greedy_select(
     embeddings: np.ndarray,
     k: int,
-    lambda_mult: float = 0.5,
+    query_embedding: np.ndarray | None = None,
 ) -> List[int]:
     """
-    Maximal Marginal Relevance selection.
+    k-center greedy selection:
+        Minimizes max distance to nearest selected point.
 
     Args:
-        embeddings: (N, d) array of utterance embeddings
-        k: number of representatives to select
-        lambda_mult: trade-off between relevance & diversity
-
-    Strategy:
-        - Query = centroid of all embeddings
-        - Relevance = cos_sim(embedding_i, query)
-        - Diversity = max cos_sim(embedding_i, already_selected)
-
-    Returns:
-        List of selected indices into embeddings (length <= k)
+        embeddings: (N, d)
+        k: number to select
+        query_embedding: optional (d,)
+            If provided, the first representative will be the point
+            closest to this query (e.g., intent-name + description embedding).
     """
     n = embeddings.shape[0]
     if n == 0:
@@ -42,37 +37,27 @@ def mmr_select(
     if k >= n:
         return list(range(n))
 
-    # query is centroid
-    query = embeddings.mean(axis=0, keepdims=True)  # (1, d)
-    sim_to_query = cosine_sim_matrix(embeddings, query).reshape(-1)  # (N,)
+    # distances helper
+    def euclid(a, b):
+        return np.linalg.norm(a - b, axis=-1)
 
-    selected: List[int] = []
-    candidate_indices = list(range(n))
+    # ---- Initialization step ----
+    if query_embedding is not None:
+        dists = euclid(embeddings, query_embedding[None, :])
+        first = int(np.argmin(dists))
+    else:
+        first = 0
 
-    # 1) pick the most relevant first
-    first_idx = int(np.argmax(sim_to_query))
-    selected.append(first_idx)
-    candidate_indices.remove(first_idx)
+    selected = [first]
+    # track distance of each pt to closest of selected
+    min_dists = euclid(embeddings, embeddings[first:first+1, :])
 
-    if k == 1:
-        return selected
+    # ---- Greedy expansion ----
+    for _ in range(1, k):
+        next_idx = int(np.argmax(min_dists))     # farthest point
+        selected.append(next_idx)
 
-    # precompute pairwise cosine similarity between utterances
-    pairwise_sim = cosine_sim_matrix(embeddings, embeddings)  # (N, N)
-
-    while len(selected) < k and candidate_indices:
-        # For each candidate, compute MMR score
-        mmr_scores = []
-        for idx in candidate_indices:
-            # diversity term: max similarity to any already selected
-            diversity = np.max(pairwise_sim[idx, selected])
-            score = lambda_mult * sim_to_query[idx] - (1.0 - lambda_mult) * diversity
-            mmr_scores.append((idx, score))
-
-        # pick best candidate
-        mmr_scores.sort(key=lambda x: x[1], reverse=True)
-        best_idx = mmr_scores[0][0]
-        selected.append(best_idx)
-        candidate_indices.remove(best_idx)
+        new_dists = euclid(embeddings, embeddings[next_idx:next_idx+1, :])
+        min_dists = np.minimum(min_dists, new_dists)
 
     return selected

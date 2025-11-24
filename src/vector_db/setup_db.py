@@ -5,13 +5,14 @@ from config import Config
 from vector_db import ChromaDBManager
 
 def setup_vector_db_from_data(
-    intent_utterance_tsv: Path, 
-    intent_description_json: Path, 
-    vector_db_dir: Path, 
+    intent_utterance_tsv: Path,
+    intent_description_json: Path,
+    vector_db_dir: Path,
     encoder_model_name: str,
     intent_collection_name: str,
     utterance_collection_name: str,
-    k_rep: int
+    k_rep: int,
+    force: bool = False,
     ) -> None:
     """
     Sets up the Chroma vector database from the provided data files.
@@ -39,7 +40,7 @@ def setup_vector_db_from_data(
     )
 
     # Build the database from the dataframe
-    chroma_manager.build_from_dataframe(df_utterances, intent_to_desc, k_rep)
+    chroma_manager.build_from_dataframe(df_utterances, intent_to_desc, k_rep, force=force)
     
     
 if __name__ == "__main__":
@@ -54,4 +55,5 @@ if __name__ == "__main__":
         intent_collection_name=config.intent_collection_name,
         utterance_collection_name=config.utterance_collection_name,
         k_rep=config.representative_utterances_k,
+        force=True,
     )
