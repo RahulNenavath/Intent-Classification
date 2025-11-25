@@ -5,6 +5,78 @@ A compact intent classification project that provides an end-to-end pipeline for
 - setting up the LLM environment,
 - running inference to classify intents.
 
+## Dataset Description
+
+This project uses a **custom, large-scale e-commerce intent classification dataset** designed to reflect realistic retail and online-shopping customer interactions. The dataset covers **98 granular e-commerce intents**, each with **~900 high-quality utterances**, resulting in a corpus of **~90,000** labeled examples.
+
+### Dataset Composition
+
+Each record contains:
+- **intent** — canonical intent name (string)
+- **utterance** — user’s free-form message expressing the intent (string)
+
+Total size:
+- **98 intents**
+- **~900 utterances per intent**
+- **~90,000 labeled examples**
+
+### Source Breakdown
+
+The dataset is composed of two parts:
+
+#### **1. Real Human Utterances (47 intents)**
+The set of utterances taken from the open-source dataset: **`bitext/Bitext-retail-ecommerce-llm-chatbot-training-dataset`** (HuggingFace)
+
+#### **2. Synthetic Utterance Generation (51 intents)**
+
+The synthetic utterances were generated using a **controlled LLM-based synthetic data pipeline** using **Groq – GPT-OSS-20B**
+
+The generation system enforced:
+- **No PII**  
+- **No real brand/store names**  
+- **Strict semantic alignment** with intent description  
+- **Tone variety** (neutral, polite, frustrated, casual, urgent)  
+- **Channel diversity** (app, web, store, chat, phone)  
+- **Short/medium-length conversational utterances**  
+- **Mild noise injection** (typos/slang ≤10%)  
+- **Distinctness constraints** to avoid duplicates
+
+This ensures that the synthetic utterances maintain **human-like linguistic variability**, while remaining **faithful** to the intent’s semantic definition.
+
+Note: The generation code and prompts are present in `Notebook/Data-Curation.ipynb`.
+
+---
+
+### Intent Coverage
+
+The dataset includes intents across the full e-commerce lifecycle:
+
+- **Cart & Wishlist Actions**  
+  (add_product, remove_product, add_to_wishlist, check_cart_items, …)
+
+- **Order Placement & Checkout**  
+  (checkout_guest, apply_discount_code, select_payment_plan, …)
+
+- **Delivery & Fulfillment**  
+  (delivery_issue, track_delivery, schedule_delivery, damaged_delivery, …)
+
+- **Returns, Refunds & Exchanges**  
+  (return_product, exchange_product, refund_status, cancel_order, …)
+
+- **Account & Profile Management**  
+  (recover_password, open_account, close_account, change_account, …)
+
+- **Product Discovery & Metadata**  
+  (product_information, check_product_reviews, availability, price_match_request, …)
+
+- **Customer Service & Escalation**  
+  (human_agent, customer_service, submit_feedback, …)
+
+- **Loyalty, Rewards & Payments**  
+  (redeem_gift_card, loyalty_points_balance_query, payment_issue, …)
+
+---
+
 ## Quick start (recommended)
 
 These instructions assume you are on a Unix-like machine (Linux or macOS).  
@@ -38,12 +110,11 @@ pip install -e .
 ```
 This installs all dependencies (from pyproject.toml + requirements.txt) and registers the intent_classification package in editable development mode.
 
-### 4. Explore the source layout (optional)
+### 4. Move to src directory
 The Python package lives inside src/:
 ```bash
-ls src
+cd src
 ```
-All python -m ... commands below must be run from the repository root once the package is installed.
 
 ### 5. Set up the Chroma vector DB
 This initializes and populates your persistent Chroma database using your utterance dataset + intent descriptions.
@@ -57,16 +128,12 @@ This will:
 - compute representative utterances per intent (k-center greedy)
 - upsert into Chroma collections
 
-If Chroma requires environment variables (e.g., storage path), configure them beforehand. See src/config.py.
-
 ### 6. Set up the LLM runtime
-The project includes a setup script for the local or remote LLM backend (MLX / Groq / other).
-From the project root:
+The project includes a setup script for the local LLM backend MLX:
 ```bash
 python -m llm.setup_llm
 ```
-This script configures the LLM model, keys, and runtime settings used by the inference pipeline.
-See src/config.py for model name and settings.
+Run the above script to download the model from `mlx-community` on Huggingface, and copies model files into `model` folder. Checkout the src/config.py for model name and settings.
 
 ### 7. Run inference (RAG-based intent classification)
 Execute the main inference module:
